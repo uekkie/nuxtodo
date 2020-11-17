@@ -124,7 +124,6 @@ export default {
       return this.categories.includes(categoryName)
     },
     hasTodos() {
-      console.log('=======]' + this.todos)
       return this.todos.length > 0
     },
     resultTodos() {
