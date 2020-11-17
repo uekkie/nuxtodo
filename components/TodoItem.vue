@@ -25,7 +25,29 @@
 </template>
 
 <script>
-export default {}
+export default {
+  props: {
+    todo: {
+      type: Object,
+      required: true,
+    },
+    done: {
+      type: Boolean,
+      required: true,
+    },
+  },
+  computed: {
+    hasCategories() {
+      return false
+      // return this.todo.categories.length > 0
+    },
+  },
+  methods: {
+    onChangeTodo($event) {
+      this.$emit('update:done', $event.target.checked)
+    },
+  },
+}
 </script>
 
 <style></style>

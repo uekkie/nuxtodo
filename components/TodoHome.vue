@@ -82,9 +82,9 @@
         class="todo-list"
       >
         <todo-item
-          v-for="todo in resultTodos"
+          v-for="todo in todos"
           :key="todo.id"
-          v-model:done="todo.done"
+          :done="todo.done"
           :todo="todo"
         >
         </todo-item>
@@ -95,34 +95,9 @@
 </template>
 
 <script>
-const todoItem = {
-  template: '#template-todo-item',
-  props: {
-    todo: {
-      type: Object,
-      required: true,
-    },
-    done: {
-      type: Boolean,
-      required: true,
-    },
-  },
-  computed: {
-    hasCategories() {
-      return this.todo.categories.length > 0
-    },
-  },
-  methods: {
-    onChangeTodo($event) {
-      this.$emit('update:done', $event.target.checked)
-    },
-  },
-}
+import firebase from '@/plugins/firebase'
 
 export default {
-  components: {
-    'todo-item': todoItem,
-  },
   data() {
     return {
       todoTitle: '',
@@ -149,6 +124,7 @@ export default {
       return this.categories.includes(categoryName)
     },
     hasTodos() {
+      console.log('=======]' + this.todos)
       return this.todos.length > 0
     },
     resultTodos() {
@@ -183,52 +159,63 @@ export default {
         })
     },
   },
-  watch: {
-    todos: {
-      handler(next) {
-        window.localStorage.setItem('todos', JSON.stringify(next))
-      },
-      deep: true,
-    },
-    categories: {
-      handler(next) {
-        window.localStorage.setItem('categories', JSON.stringify(next))
-      },
-      deep: true,
-    },
-  },
   created() {
-    // NOTE SSRではクライアントサイドのリソース（window, document）は試用できない
-    // 参考：window または document が undefined - NuxtJS
-    // https://ja.nuxtjs.org/faq/window-document-undefined/
-    const todos = undefined
-    // window.localStorage.getItem('todos')
-    const categories = undefined
-    // window.localStorage.getItem('categories')
+    firebase
+      .database()
+      .ref('todos')
+      .on('child_added', (snapshot) =>
+        this.todos.push({ ...snapshot.val(), id: snapshot.key })
+      )
 
-    if (todos) {
-      this.todos = JSON.parse(todos)
-    }
+    firebase
+      .database()
+      .ref('categories')
+      .on('child_added', (snapshot) =>
+        this.categories.push({ ...snapshot.val(), id: snapshot.key })
+      )
+    const vue = this
 
-    if (categories) {
-      this.categories = JSON.parse(categories)
-    }
+    firebase
+      .database()
+      .ref('todos')
+      .on('value', function (snapshot) {
+        if (snapshot) {
+          const rootList = snapshot.val()
+          const list = []
+          // データオブジェクトを配列に変更する
+          if (rootList != null) {
+            Object.keys(rootList).forEach((val) => {
+              rootList[val].id = val
+              list.push(rootList[val])
+            })
+            vue.todos = list
+          }
+        }
+      })
+
+    firebase
+      .database()
+      .ref('categories')
+      .on('value', function (snapshot) {
+        vue.categories = snapshot.val()
+      })
   },
   methods: {
     createTodo() {
       if (!this.canCreateTodo) {
         return
       }
-
-      // Todoを追加する
-      this.todos.push({
-        id: 'todo-' + Date.now(),
-        title: this.todoTitle,
-        description: this.todoDescription,
-        categories: this.todoCategories,
-        dateTime: Date.now(),
-        done: false,
-      })
+      firebase
+        .database()
+        .ref('todos')
+        .push({
+          id: 'todo-' + Date.now(),
+          title: this.todoTitle,
+          description: this.todoDescription,
+          categories: this.todoCategories,
+          dateTime: Date.now(),
+          done: false,
+        })
 
       this.todoTitle = ''
       this.todoDescription = ''
@@ -240,7 +227,7 @@ export default {
       }
 
       // カテゴリを追加する
-      this.categories.push(this.categoryName)
+      firebase.database().ref('categories').push(this.categoryName)
 
       this.categoryName = ''
     },
